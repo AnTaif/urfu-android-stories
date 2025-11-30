@@ -11,7 +11,6 @@ import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDe
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.ui.NavDisplay
-import github.antaif.urfuandroidstories.model.sampleStories
 import github.antaif.urfuandroidstories.navigation.Route
 import github.antaif.urfuandroidstories.navigation.Routes
 import github.antaif.urfuandroidstories.navigation.TopLevelBackStack
@@ -35,19 +34,12 @@ fun MainScreen() {
             ),
             entryProvider = entryProvider {
                 entry<Routes.MainScreen> {
-                    StoriesListScreen(
-                        sampleStories,
-                        onStoryClick = { index ->
-                            topLevelBackStack.addTopLevel(Routes.StoriesViewingScreen(index, sampleStories))
-                        }
-                    )
+                    StoriesListScreen()
                 }
 
                 entry<Routes.StoriesViewingScreen> {
                     StoriesViewingScreen(
-                        startIndex = it.startIndex,
-                        stories = it.stories,
-                        onClose = { topLevelBackStack.removeLast() }
+                        startIndex = it.startIndex
                     )
                 }
             }

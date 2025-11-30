@@ -12,6 +12,8 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -20,24 +22,25 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import github.antaif.urfuandroidstories.model.Story
+import github.antaif.urfuandroidstories.viewmodel.StoriesListViewModel
+import org.koin.androidx.compose.koinViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StoriesListScreen(
-    stories: List<Story>,
-    onStoryClick: (Int) -> Unit
+    viewModel: StoriesListViewModel = koinViewModel()
 ) {
+    val stories by viewModel.stories.collectAsState()
+
     LazyRow(
         modifier = Modifier.padding(16.dp),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         items(stories.size) { index ->
-            val s = stories[index]
+            val currentStory = stories[index]
             StoryIcon(
-                story = s,
-                onClick = {
-                    onStoryClick(index)
-                }
+                story = currentStory,
+                onClick = { viewModel.onStoryClick(index) }
             )
         }
     }

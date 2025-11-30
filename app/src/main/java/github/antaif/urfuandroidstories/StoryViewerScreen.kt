@@ -16,10 +16,9 @@ import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableStateMapOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -27,47 +26,44 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import coil.compose.AsyncImage
 import github.antaif.urfuandroidstories.model.Story
-import kotlinx.coroutines.delay
+import github.antaif.urfuandroidstories.viewmodel.StoryViewerViewModel
 import kotlinx.coroutines.launch
+import org.koin.androidx.compose.koinViewModel
+import org.koin.core.parameter.parametersOf
 
 @Composable
 fun StoriesViewingScreen(
     startIndex: Int,
-    stories: List<Story>,
-    onClose: () -> Unit
+    viewModel: StoryViewerViewModel = koinViewModel(
+        parameters = { parametersOf(startIndex) }
+    )
 ) {
+    val state by viewModel.state.collectAsState()
     val pagerState = rememberPagerState(
-        initialPage = startIndex,
-        pageCount = { stories.size }
+        initialPage = state.currentPage,
+        pageCount = { state.stories.size }
     )
     val coroutineScope = rememberCoroutineScope()
-    val progressStates = remember { mutableStateMapOf<Int, Float>() }
+
+    if (state.isLoading || state.stories.isEmpty()) {
+        return
+    }
 
     LaunchedEffect(pagerState.currentPage) {
-        val currentPage = pagerState.currentPage
-        val currentStory = stories[currentPage]
+        viewModel.onPageChanged(pagerState.currentPage)
+    }
 
-        if (currentStory.type == Story.Type.IMAGE) {
-            progressStates[currentPage] = 0f
-            val duration = 15000L
-            val steps = 150
-            val stepDelay = duration / steps
-            repeat(steps) {
-                delay(stepDelay)
-                if (pagerState.currentPage == currentPage) {
-                    progressStates[currentPage] = (it + 1) / steps.toFloat()
-                }
+    LaunchedEffect(state.currentPage) {
+        if (state.currentPage != pagerState.currentPage && state.currentPage < state.stories.size) {
+            coroutineScope.launch {
+                pagerState.animateScrollToPage(state.currentPage)
             }
-            if (pagerState.currentPage == currentPage) {
-                progressStates[currentPage] = 1f
-                if (currentPage < stories.size - 1) {
-                    coroutineScope.launch {
-                        pagerState.animateScrollToPage(currentPage + 1)
-                    }
-                } else {
-                    onClose()
-                }
-            }
+        }
+    }
+
+    LaunchedEffect(state.shouldClose) {
+        if (state.shouldClose) {
+            viewModel.onClose()
         }
     }
 
@@ -82,29 +78,20 @@ fun StoriesViewingScreen(
         ) { page ->
             key(page) {
                 StoryItem(
-                    story = stories[page],
+                    story = state.stories[page],
                     isActive = page == pagerState.currentPage,
                     onVideoEnd = {
-                        progressStates[page] = 1f
-                        if (page < stories.size - 1) {
-                            coroutineScope.launch {
-                                pagerState.animateScrollToPage(page + 1)
-                            }
-                        } else {
-                            onClose()
-                        }
+                        viewModel.onVideoEnd(page)
                     },
                     onVideoProgress = { progress ->
-                        progressStates[page] = progress
+                        viewModel.onVideoProgress(page, progress)
                     }
                 )
             }
         }
 
         ProgressBars(
-            stories = stories,
-            currentPage = pagerState.currentPage,
-            progressStates = progressStates,
+            currentProgress = state.currentProgress,
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(8.dp)
@@ -141,28 +128,19 @@ fun StoryItem(
 
 @Composable
 fun ProgressBars(
-    stories: List<Story>,
-    currentPage: Int,
-    progressStates: Map<Int, Float>,
+    currentProgress: Float,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        stories.forEachIndexed { index, story ->
-            val progress = when {
-                index < currentPage -> 1f
-                index == currentPage -> progressStates[index] ?: 0f
-                else -> 0f
-            }
-            StoryProgressBar(
-                progress = progress,
-                modifier = Modifier
-                    .weight(1f)
-                    .height(3.dp)
-            )
-        }
+        StoryProgressBar(
+            progress = currentProgress,
+            modifier = Modifier
+                .weight(1f)
+                .height(3.dp)
+        )
     }
 }
 
